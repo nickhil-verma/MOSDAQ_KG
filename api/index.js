@@ -9,26 +9,26 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 const DB_NAME = "knowledge_graph";
 const COLLECTION_NAME = "mosdac_nodes";
 
-let db, collection;
+let collection;
 
 // Connect to MongoDB
 async function connectDB() {
   const client = new MongoClient(MONGO_URI);
   await client.connect();
-  db = client.db(DB_NAME);
+  const db = client.db(DB_NAME);
   collection = db.collection(COLLECTION_NAME);
   console.log("✅ Connected to MongoDB Atlas");
 }
-connectDB();
 
+// Define API routes
+const apiRoutes = express.Router();
 
 // 🔹 Route 1: Raw JSON documents
-app.get("/api/json", async (req, res) => {
+apiRoutes.get("/json", async (req, res) => {
   try {
     const docs = await collection.find({}).toArray();
     res.json(docs);
@@ -39,18 +39,16 @@ app.get("/api/json", async (req, res) => {
 });
 
 // 🔹 Route 2: Vector-formatted output
-app.get("/api/vectors", async (req, res) => {
+apiRoutes.get("/vectors", async (req, res) => {
   try {
     const docs = await collection.find({}).toArray();
 
     const vectorData = docs.map(doc => {
-      // Try to extract embedding
-      const embedding =
-        Array.isArray(doc.embedding?.values)
-          ? doc.embedding.values
-          : Array.isArray(doc.embedding)
-          ? doc.embedding
-          : [];
+      const embedding = Array.isArray(doc.embedding?.values)
+        ? doc.embedding.values
+        : Array.isArray(doc.embedding)
+        ? doc.embedding
+        : [];
 
       return {
         id: doc._id.toString(),
@@ -70,11 +68,23 @@ app.get("/api/vectors", async (req, res) => {
   }
 });
 
-app.get("/api/debug", async (req, res) => {
-  const doc = await collection.findOne({});
-  res.json(doc);
+// 🔹 Route 3: Debug - returns a single document
+apiRoutes.get("/debug", async (req, res) => {
+  try {
+    const doc = await collection.findOne({});
+    res.json(doc);
+  } catch (err) {
+    res.status(500).json({ error: "Debug fetch failed" });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running at http://localhost:${PORT}`);
+// Mount routes
+app.use("/api", apiRoutes);
+
+// Start server only after DB connects
+connectDB().then(() => {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () =>
+    console.log(`🚀 Server running on http://localhost:${PORT}`)
+  );
 });
