@@ -38,10 +38,15 @@ apiRoutes.get("/json", async (req, res) => {
   }
 });
 
-// 🔹 Route 2: Vector-formatted output
+ 
 apiRoutes.get("/vectors", async (req, res) => {
   try {
-    const docs = await collection.find({}).toArray();
+    const client = new MongoClient(MONGO_URI);
+    await client.connect();
+    const db = client.db("isro_Hackathon");
+    const vectorsCollection = db.collection("vectors");
+
+    const docs = await vectorsCollection.find({}).toArray();
 
     const vectorData = docs.map(doc => {
       const embedding = Array.isArray(doc.embedding?.values)
@@ -67,6 +72,7 @@ apiRoutes.get("/vectors", async (req, res) => {
     res.status(500).json({ error: "Failed to format vector data." });
   }
 });
+
 
 // 🔹 Route 3: Debug - returns a single document
 apiRoutes.get("/debug", async (req, res) => {
